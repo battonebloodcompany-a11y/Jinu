@@ -3,64 +3,60 @@ const fs = require("fs-extra");
 const path = require("path");
 
 module.exports = {
-  config: {
-    name: "slap",
-    version: "1.2",
-    author: "NTKhang x Sajib",
-    countDown: 5,
-    role: 0,
-    shortDescription: "Batslap an image of a tagged user",
-    longDescription: "Generate a batslap meme image using your avatar and the tagged user's avatar.",
-    category: "image",
-    guide: {
-      en: "   {pn} @tag [optional text]"
-    }
-  },
+	config: {
+		name: "slap",
+		version: "1.0",
+		author: "Fahim + ChatGPT",
+		countDown: 5,
+		role: 0,
+		shortDescription: {
+			en: "Slap someone"
+		},
+		longDescription: {
+			en: "Create a batslap image"
+		},
+		category: "fun",
+		guide: {
+			en: "{pn} @mention"
+		}
+	},
 
-  langs: {
-    en: {
-      noTag: "❌ | You must tag the person you want to slap!",
-      error: "❌ | An error occurred while generating the image."
-    }
-  },
+	onStart: async function ({ event, message, usersData }) {
+		try {
+			const uid1 = event.senderID;
+			const uid2 = Object.keys(event.mentions)[0];
 
-  onStart: async function ({ event, message, usersData, args, getLang }) {
-    const uid1 = event.senderID;
-    const uid2 = Object.keys(event.mentions)[0];
+			if (!uid2)
+				return message.reply("❌ | Tag someone.");
 
-    if (!uid2) {
-      return message.reply(getLang("noTag"));
-    }
+			const avatar1 = await usersData.getAvatarUrl(uid1);
+			const avatar2 = await usersData.getAvatarUrl(uid2);
 
-    try {
-      const avatarURL1 = await usersData.getAvatarUrl(uid1);
-      const avatarURL2 = await usersData.getAvatarUrl(uid2);
+			const img = await new DIG.Batslap().getImage(
+				avatar1,
+				avatar2
+			);
 
-      // Ensure the tmp directory exists to prevent folder missing errors
-      const tmpDir = path.join(__dirname, "tmp");
-      fs.ensureDirSync(tmpDir);
+			const tmpDir = path.join(__dirname, "tmp");
+			await fs.ensureDir(tmpDir);
 
-      // Generate the batslap image
-      const img = await new DIG.Batslap().getImage(avatarURL1, avatarURL2);
-      const pathSave = path.join(tmpDir, ${uid1}_${uid2}_batslap.png);
-      
-      fs.writeFileSync(pathSave, Buffer.from(img));
+			const filePath = path.join(
+				tmpDir,
+				`${uid1}_${uid2}.png`
+			);
 
-      // Fix the mention text replacement bug
-      const mentionText = event.mentions[uid2] || "";
-      const content = args.join(" ").replace(mentionText, "").trim();
+			fs.writeFileSync(filePath, img);
 
-      message.reply({
-        body: content || "sʟᴀᴘ 🥴😵",
-        attachment: fs.createReadStream(pathSave)
-      }, () => {
-        if (fs.existsSync(pathSave)) {
-          fs.unlinkSync(pathSave);
-        }
-      });
-    } catch (error) {
-      console.error(error);
-      return message.reply(getLang("error"));
-    }
-  }
+			await message.reply({
+				body: "🥴 Slapped!",
+				attachment: fs.createReadStream(filePath)
+			});
+
+			fs.unlinkSync(filePath);
+
+		} catch (e) {
+			console.log(e);
+			message.reply("❌ Error:\n" + e.message);
+		}
+	}
 };
